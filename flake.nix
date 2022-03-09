@@ -13,16 +13,16 @@
     in
     {
       overlay = (final: prev: {
-        haskell-hello = final.haskellPackages.callCabal2nix "haskell-hello" ./. {};
+        hello-haskell-flake = final.haskellPackages.callCabal2nix "hello-haskell-flake" ./. {};
       });
       packages = forAllSystems (system: {
-         haskell-hello = nixpkgsFor.${system}.haskell-hello;
+         hello-haskell-flake = nixpkgsFor.${system}.hello-haskell-flake;
       });
-      defaultPackage = forAllSystems (system: self.packages.${system}.haskell-hello);
+      defaultPackage = forAllSystems (system: self.packages.${system}.hello-haskell-flake);
       checks = self.packages;
       devShell = forAllSystems (system: let haskellPackages = nixpkgsFor.${system}.haskellPackages;
         in haskellPackages.shellFor {
-          packages = p: [self.packages.${system}.haskell-hello];
+          packages = p: [self.packages.${system}.hello-haskell-flake];
           withHoogle = true;
           buildInputs = with haskellPackages; [
             haskell-language-server
