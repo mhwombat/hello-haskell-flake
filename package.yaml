@@ -1,5 +1,5 @@
 dependencies:
   - base == 4.*
 executables:
-  haskell-hello:
+  hello-haskell-flake:
     main: Main.hs
