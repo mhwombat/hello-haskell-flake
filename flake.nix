@@ -1,36 +1,46 @@
 {
-  # inspired by: https://serokell.io/blog/practical-nix-flakes#packaging-existing-applications
-  description = "A Hello World in Haskell with a dependency and a devShell";
-  inputs.nixpkgs.url = "nixpkgs";
-  outputs = { self, nixpkgs }:
-    let
-      supportedSystems = [ "x86_64-linux" ];
-      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
-      nixpkgsFor = forAllSystems (system: import nixpkgs {
-        inherit system;
-        overlays = [ self.overlay ];
-      });
-    in
-    {
-      overlay = (final: prev: {
-        hello-haskell-flake = final.haskellPackages.callCabal2nix "hello-haskell-flake" ./. {};
-      });
-      packages = forAllSystems (system: {
-         hello-haskell-flake = nixpkgsFor.${system}.hello-haskell-flake;
-      });
-      defaultPackage = forAllSystems (system: self.packages.${system}.hello-haskell-flake);
-      checks = self.packages;
-      devShell = forAllSystems (system: let haskellPackages = nixpkgsFor.${system}.haskellPackages;
-        in haskellPackages.shellFor {
-          packages = p: [self.packages.${system}.hello-haskell-flake];
-          withHoogle = true;
-          buildInputs = with haskellPackages; [
-            haskell-language-server
-            ghcid
-            cabal-install
-          ];
-        # Change the prompt to show that you are in a devShell
-        shellHook = "export PS1='\\e[1;34mdev > \\e[0m'";
-        });
-  };
+  description = "A greeting that uses Haskell and flakes.";
+
+  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+  inputs.flake-utils.url = "github:numtide/flake-utils";
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        haskellPackages = pkgs.haskellPackages;
+        packageName = "hello-haskell-flake";
+      in
+        {
+          packages.${packageName} =
+            with haskellPackages; with pkgs;
+              mkDerivation {
+                pname = packageName;
+                version = "0.1.0.0";
+                src = ./.;
+                isLibrary = false;
+                isExecutable = true;
+                buildDepends = [ makeWrapper ];
+                executableHaskellDepends = [ base directory process random ];
+                license = "unknown";
+                hydraPlatforms = lib.platforms.none;
+                postInstall = ''
+                          wrapProgram $out/bin/${packageName} \
+                            --prefix PATH : ${lib.getBin pkgs.swaybg}/bin
+                              '';
+              };
+
+          defaultPackage = self.packages.${system}.${packageName};
+
+          devShell = pkgs.mkShell {
+            buildInputs = with haskellPackages;
+              [ ghc
+                haskell-language-server
+                cabal-install
+              ];
+            inputsFrom = builtins.attrValues self.packages.${system};
+          };
+        }
+    );
 }
