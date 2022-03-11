@@ -33,6 +33,17 @@
 
           defaultPackage = self.packages.${system}.${packageName};
 
+          # A NixOS module, if applicable (e.g. if the package provides a system service).
+          nixosModules.${packageName} =
+            { pkgs, ... }:
+            {
+              nixpkgs.overlays = [ self.overlay ];
+
+              environment.systemPackages = [ pkgs.${packageName} ];
+
+              #systemd.services = { ... };
+            };
+        
           devShell = pkgs.mkShell {
             buildInputs = with haskellPackages;
               [ ghc
