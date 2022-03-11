@@ -25,10 +25,6 @@
                 executableHaskellDepends = [ base directory process random ];
                 license = "unknown";
                 hydraPlatforms = lib.platforms.none;
-                postInstall = ''
-                          wrapProgram $out/bin/${packageName} \
-                            --prefix PATH : ${lib.getBin pkgs.swaybg}/bin
-                              '';
               };
 
           defaultPackage = self.packages.${system}.${packageName};
