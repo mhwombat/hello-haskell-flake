@@ -27,6 +27,15 @@
                 hydraPlatforms = lib.platforms.none;
               };
 
+          # # A Nixpkgs overlay.
+          # overlay = final: prev: {
+          #   hello = with final; stdenv.mkDerivation rec {
+          #     name = "hello-${version}";
+          #     src = ./.;
+          #     nativeBuildInputs = [ autoreconfHook ];
+          #   };
+          # };
+
           defaultPackage = self.packages.${system}.${packageName};
 
           # A NixOS module, if applicable (e.g. if the package provides a system service).
@@ -35,7 +44,7 @@
             {
               nixpkgs.overlays = [ self.overlay ];
 
-              environment.systemPackages = [ pkgs.${packageName} ];
+              environment.systemPackages = [ packages.${packageName} ];
 
               #systemd.services = { ... };
             };
