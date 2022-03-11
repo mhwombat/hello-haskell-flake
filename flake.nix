@@ -12,7 +12,7 @@
         haskellPackages = pkgs.haskellPackages;
         packageName = "hello-haskell-flake";
       in
-        {
+        rec {
           packages.${packageName} =
             with haskellPackages; with pkgs;
               mkDerivation {
