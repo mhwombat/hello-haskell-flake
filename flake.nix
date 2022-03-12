@@ -24,7 +24,7 @@
 
       module = { pkgs, config, lib, ... }:
         {
-          nixpkgs.overlays = [ self.overlay ];
+          # nixpkgs.overlays = [ self.overlay ];
           environment.systemPackages = [ pkgs.hello-haskell-flake ];
           #systemd.services = { ... };
         };
