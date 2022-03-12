@@ -22,15 +22,8 @@
           installPhase = "install -D app/Main $out/bin/hello-haskell-flake";
         };
 
-      module = { pkgs, config, lib, ... }:
-        {
-          # nixpkgs.overlays = [ self.overlay ];
-          environment.systemPackages = [ pkgs.hello-haskell-flake ];
-          #systemd.services = { ... };
-        };
-
     in {
-      nixosModules.hello-haskell-flake = module;
+      nixosModules.hello-haskell-flake = package;
     } // (utils.lib.eachSystem [ "aarch64-linux" "i686-linux" "x86_64-linux" ]
       (system:
         let
