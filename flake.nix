@@ -1,56 +1,49 @@
 {
+  description = "My haskell application";
+
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
-      with nixpkgs.legacyPackages.${system};
       let
-        t = lib.trivial;
-        hl = haskell.lib;
+        pkgs = nixpkgs.legacyPackages.${system};
 
-        name = "hello-haskell-flake";
+        haskellPackages = pkgs.haskellPackages;
 
-        project = devTools:
-          let addBuildTools = (t.flip hl.addBuildTools) devTools;
-          in haskellPackages.developPackage {
-            root = lib.sourceFilesBySuffices ./. [ ".cabal" ".hs" ];
-            name = name;
-            returnShellEnv = !(devTools == [ ]);
+        jailbreakUnbreak = pkg:
+          pkgs.haskell.lib.doJailbreak (pkg.overrideAttrs (_: { meta = { }; }));
 
-            modifier = (t.flip t.pipe) [
-              addBuildTools
-              hl.dontHaddock
-              hl.enableStaticLibraries
-              hl.justStaticExecutables
-              hl.disableLibraryProfiling
-              hl.disableExecutableProfiling
-            ];
-          };
-
+        packageName = "hello-haskell-flake";
       in {
-        packages.pkg = project [ ];
-        
-        defaultPackage = self.packages.${system}.pkg;
-
-        devShell = project (with haskellPackages; [
-          cabal-fmt
-          cabal-install
-          haskell-language-server
-          hlint
-        ]);
-
-        nixosModules.hello-haskell-flake =
-          { pkgs, ... }:
-          {
-            nixpkgs.overlays = [ self.overlay ];
-
-            environment.systemPackages = [ pkgs.hello-haskell-flake ];
-
-            #systemd.services = { ... };
+        packages.${packageName} = # (ref:haskell-package-def)
+          haskellPackages.callCabal2nix packageName self rec {
+            # Dependency overrides go here
           };
 
+        defaultPackage = self.packages.${system}.${packageName};
+
+        devShell = pkgs.mkShell {
+          buildInputs = with haskellPackages; [
+            haskell-language-server
+            ghcid
+            cabal-install
+          ];
+          inputsFrom = builtins.attrValues self.packages.${system};
+        };
+
+        # # A NixOS module, if applicable (e.g. if the package provides a system service).
+        # nixosModules.${packageName}  =
+        #   { pkgs, ... }:
+        #   {
+        #     nixpkgs.overlays = [ self.overlay ];
+
+        #     environment.systemPackages = [ pkgs.${packageName}  ];
+
+        #     #systemd.services = { ... };
+        #   };
       });
 }
+
