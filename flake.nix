@@ -1,129 +1,56 @@
 {
-  description = "An over-engineered Hello World in bash";
-
-  inputs = {  
-    # Nixpkgs / NixOS version to use.
-    nixpkgs.url = "nixpkgs/nixos-21.05";
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
   };
-  
-  outputs = { self, nixpkgs }:
-    let
 
-      # to work with older version of flakes
-      lastModifiedDate = self.lastModifiedDate or self.lastModified or "19700101";
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      with nixpkgs.legacyPackages.${system};
+      let
+        t = lib.trivial;
+        hl = haskell.lib;
 
-      # Generate a user-friendly version number.
-      version = builtins.substring 0 8 lastModifiedDate;
+        name = "hello-haskell-flake";
 
-      # System types to support.
-      supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
+        project = devTools:
+          let addBuildTools = (t.flip hl.addBuildTools) devTools;
+          in haskellPackages.developPackage {
+            root = lib.sourceFilesBySuffices ./. [ ".cabal" ".hs" ];
+            name = name;
+            returnShellEnv = !(devTools == [ ]);
 
-      # Helper function to generate an attrset '{ x86_64-linux = f "x86_64-linux"; ... }'.
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+            modifier = (t.flip t.pipe) [
+              addBuildTools
+              hl.dontHaddock
+              hl.enableStaticLibraries
+              hl.justStaticExecutables
+              hl.disableLibraryProfiling
+              hl.disableExecutableProfiling
+            ];
+          };
 
-      # Nixpkgs instantiated for supported system types.
-      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; overlays = [ self.overlay ]; });
+      in {
+        packages.pkg = project [ ];
+        
+        defaultPackage = self.packages.${system}.pkg;
 
-    in
+        devShell = project (with haskellPackages; [
+          cabal-fmt
+          cabal-install
+          haskell-language-server
+          hlint
+        ]);
 
-    {
-
-      # A Nixpkgs overlay.
-      overlay = final: prev: {
-
-        hello-haskell-flake = with final; stdenv.mkDerivation rec {
-          name = "hello-haskell-flake-${version}";
-
-          unpackPhase = ":";
-
-          buildPhase =
-            ''
-              cat > hello-haskell-flake <<EOF
-              #! $SHELL
-              echo "Hello Wombat! I'm your flake."
-              EOF
-              chmod +x hello-haskell-flake
-            '';
-
-          installPhase =
-            ''
-              mkdir -p $out/bin
-              cp hello-haskell-flake $out/bin/
-            '';
-        };
-
-      };
-
-      # Provide some binary packages for selected system types.
-      packages = forAllSystems (system:
-        {
-          inherit (nixpkgsFor.${system}) hello-haskell-flake;
-        });
-
-      # The default package for 'nix build'. This makes sense if the
-      # flake provides only one package or there is a clear "main"
-      # package.
-      defaultPackage = forAllSystems (system: self.packages.${system}.hello-haskell-flake);
-
-      # A NixOS module, if applicable (e.g. if the package provides a system service).
-      nixosModules.hello-haskell-flake =
-        { pkgs, ... }:
-        {
-          nixpkgs.overlays = [ self.overlay ];
-
-          environment.systemPackages = [ pkgs.hello-haskell-flake ];
-
-          #systemd.services = { ... };
-        };
-
-      # Tests run by 'nix flake check' and by Hydra.
-      checks = forAllSystems
-        (system:
-          with nixpkgsFor.${system};
-
+        nixosModules.hello-haskell-flake =
+          { pkgs, ... }:
           {
-            inherit (self.packages.${system}) hello-haskell-flake;
+            nixpkgs.overlays = [ self.overlay ];
 
-            # Additional tests, if applicable.
-            test = stdenv.mkDerivation {
-              name = "hello-haskell-flake-test-${version}";
+            environment.systemPackages = [ pkgs.hello-haskell-flake ];
 
-              buildInputs = [ hello-haskell-flake ];
+            #systemd.services = { ... };
+          };
 
-              unpackPhase = "true";
-
-              buildPhase = ''
-                echo 'running some integration tests'
-                [[ $(hello-haskell-flake) = 'Hello Nixers!' ]]
-              '';
-
-              installPhase = "mkdir -p $out";
-            };
-          }
-
-          // lib.optionalAttrs stdenv.isLinux {
-            # A VM test of the NixOS module.
-            vmTest =
-              with import (nixpkgs + "/nixos/lib/testing-python.nix") {
-                inherit system;
-              };
-
-              makeTest {
-                nodes = {
-                  client = { ... }: {
-                    imports = [ self.nixosModules.hello-haskell-flake ];
-                  };
-                };
-
-                testScript =
-                  ''
-                    start_all()
-                    client.wait_for_unit("multi-user.target")
-                    client.succeed("hello-haskell-flake")
-                  '';
-              };
-          }
-        );
-
-    };
+      });
 }
